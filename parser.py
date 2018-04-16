@@ -1,6 +1,7 @@
 from display import *
 from matrix import *
 from draw import *
+from copy import deepcopy
 
 """
 Goes through the file named filename and performs all of the actions listed in that file.
@@ -52,11 +53,10 @@ See the file script for an example of the file format
 """
 ARG_COMMANDS = [ 'line', 'scale', 'move', 'rotate', 'save', 'circle', 'bezier', 'hermite', 'box', 'sphere', 'torus' ]
 
-def parse_file( fname, edges, polygons, transform, screen, color ):
-
+def parse_file( fname, edges, polygons, csstack, screen, color ):
+    #Current coodinate system (top of stack) is at the end of the stack data structure
     f = open(fname)
     lines = f.readlines()
-    stack=[]
     step = 100
     step_3d = 20
     c = 0
@@ -73,20 +73,27 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
             #print 'SPHERE\t' + str(args)
             add_sphere(polygons,
                        float(args[0]), float(args[1]), float(args[2]),
-                       float(args[3]), step_3d)
-
+                       float(args[3]), step_3d)       
+            n=csstack[-1]
+            matrix_mult(n,polygons)
+            draw_polygons(polygons, screen, color)
+            polygons=[]
         elif line == 'torus':
             #print 'TORUS\t' + str(args)
             add_torus(polygons,
                       float(args[0]), float(args[1]), float(args[2]),
                       float(args[3]), float(args[4]), step_3d)
-
+            n=csstack[-1]
+            matrix_mult(n,polygons)
+            draw_polygons(polygons, screen, color)
+            polygons=[]
         elif line == 'box':
             #print 'BOX\t' + str(args)
             add_box(polygons,
                     float(args[0]), float(args[1]), float(args[2]),
                     float(args[3]), float(args[4]), float(args[5]))
-            n=stack[0]
+            n=csstack[-1]
+            matrix_mult(n,polygons)
             draw_polygons(polygons, screen, color)
             polygons=[]
             
@@ -95,7 +102,10 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
             add_circle(edges,
                        float(args[0]), float(args[1]), float(args[2]),
                        float(args[3]), step)
-
+            n=csstack[-1]
+            matrix_mult(n,edges)
+            draw_lines(edges,screen,color)
+            edges=[]
         elif line == 'hermite' or line == 'bezier':
             #print 'curve\t' + line + ": " + str(args)
             add_curve(edges,
@@ -104,6 +114,10 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
                       float(args[4]), float(args[5]),
                       float(args[6]), float(args[7]),
                       step, line)
+            n=csstack[-1]
+            matrix_mult(n,edges)
+            draw_lines(edges,screen,color)
+            edges=[]
 
         elif line == 'line':
             #print 'LINE\t' + str(args)
@@ -111,21 +125,25 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
             add_edge( edges,
                       float(args[0]), float(args[1]), float(args[2]),
                       float(args[3]), float(args[4]), float(args[5]) )
+            n=csstack[-1]
+            matrix_mult(n,edges)
+            draw_lines(edges,screen,color)
+            edges=[]
 
         elif line == 'scale':
             #print 'SCALE\t' + str(args)
             t = make_scale(float(args[0]), float(args[1]), float(args[2]))
-            n=stack[0]
+            n=csstack[-1]
             matrix_mult(n,t)
-            stack.append(t)
+            csstack[-1]=t
             #matrix_mult(t, transform)
 
         elif line == 'move':
             #print 'MOVE\t' + str(args)
             t = make_translate(float(args[0]), float(args[1]), float(args[2]))
-            n=stack[0]
+            n=csstack[-1]
             matrix_mult(n,t)
-            stack.append(t)
+            csstack[-1]=t
             #matrix_mult(t, transform)
 
         elif line == 'rotate':
@@ -138,36 +156,19 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
                 t = make_rotY(theta)
             else:
                 t = make_rotZ(theta)
-            n=stack[0]
+            n=csstack[-1]
             matrix_mult(n,t)
-            stack.append(t)
+            csstack[-1]=t
             ##matrix_mult(t, transform)
         elif line=="push":
             ##top is end of list
-            if (len(stack)==0):
-                m=new_matrix()
-                iden=ident(m)
-                stack.append(iden)
-            else:
-                n=scalar_mult(stack[0], ident(stack[0])) ##copy of top of stack
-                stack.append(n)
+            csstack.append(deepcopy(csstack[-1]))
         elif line=="pop":
-            stack.pop()
-        elif line == 'clear':
-            edges = []
-            polygons = []
-
-        elif line == 'ident':
-            ident(transform)
-
-        elif line == 'apply':
-            matrix_mult( transform, edges )
-            matrix_mult( transform, polygons )
-
+            csstack.pop()
         elif line == 'display' or line == 'save':
-            clear_screen(screen)
-            draw_lines(edges, screen, color)
-            draw_polygons(polygons, screen, color)
+            #clear_screen(screen)
+            #draw_lines(edges, screen, color)
+            #draw_polygons(polygons, screen, color)
 
             if line == 'display':
                 display(screen)
