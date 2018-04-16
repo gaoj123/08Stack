@@ -39,7 +39,7 @@ The file follows the following format:
              1) Create the appropriate transformation matrix
              2) Multiply that matrix by current top of the coordinate system stack
 
-         scale: takees 3 arguments (sx, sy, sz)
+         scale: takes 3 arguments (sx, sy, sz)
          move:  takes 3 arguments (tx, ty, tz)
          rotate: takes 2 arguments (axis, theta) axis should be x, y or z
 
@@ -56,10 +56,9 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
 
     f = open(fname)
     lines = f.readlines()
-
+    stack=[]
     step = 100
     step_3d = 20
-
     c = 0
     while c < len(lines):
         line = lines[c].strip()
@@ -87,7 +86,10 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
             add_box(polygons,
                     float(args[0]), float(args[1]), float(args[2]),
                     float(args[3]), float(args[4]), float(args[5]))
-
+            n=stack[0]
+            draw_polygons(polygons, screen, color)
+            polygons=[]
+            
         elif line == 'circle':
             #print 'CIRCLE\t' + str(args)
             add_circle(edges,
@@ -113,12 +115,18 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
         elif line == 'scale':
             #print 'SCALE\t' + str(args)
             t = make_scale(float(args[0]), float(args[1]), float(args[2]))
-            matrix_mult(t, transform)
+            n=stack[0]
+            matrix_mult(n,t)
+            stack.append(t)
+            #matrix_mult(t, transform)
 
         elif line == 'move':
             #print 'MOVE\t' + str(args)
             t = make_translate(float(args[0]), float(args[1]), float(args[2]))
-            matrix_mult(t, transform)
+            n=stack[0]
+            matrix_mult(n,t)
+            stack.append(t)
+            #matrix_mult(t, transform)
 
         elif line == 'rotate':
             #print 'ROTATE\t' + str(args)
@@ -130,8 +138,21 @@ def parse_file( fname, edges, polygons, transform, screen, color ):
                 t = make_rotY(theta)
             else:
                 t = make_rotZ(theta)
-            matrix_mult(t, transform)
-
+            n=stack[0]
+            matrix_mult(n,t)
+            stack.append(t)
+            ##matrix_mult(t, transform)
+        elif line=="push":
+            ##top is end of list
+            if (len(stack)==0):
+                m=new_matrix()
+                iden=ident(m)
+                stack.append(iden)
+            else:
+                n=scalar_mult(stack[0], ident(stack[0])) ##copy of top of stack
+                stack.append(n)
+        elif line=="pop":
+            stack.pop()
         elif line == 'clear':
             edges = []
             polygons = []
